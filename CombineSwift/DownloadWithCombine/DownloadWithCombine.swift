@@ -93,4 +93,5 @@ class DownloadWithCombineViewModel: ObservableObject {
 ///   5. `decode` → map JSON to Swift model.
 ///   6. `sink` → receive values and completion.
 ///   7. `store(in:)` → retain cancellable for subscription lifecycle.
-///   idf we are reapcle with the completiuion oblock of sink cna be fget rid of
+///   ✅ If you use .replaceError(with: []), you can ignore the completion closure in sink and only keep the receiveValue.
+

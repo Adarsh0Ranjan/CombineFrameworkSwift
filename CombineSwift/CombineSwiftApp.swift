@@ -11,7 +11,7 @@ import SwiftUI
 struct CombineSwiftApp: App {
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            DownloadWithCombine()
         }
     }
 }
