@@ -54,6 +54,107 @@ class AdvancedCombineDataService {
     }
 }
 
+// MARK: - COMBINE INTERVIEW QUESTIONS & ANSWERS
+
+// MARK: - BEGINNER / FOUNDATIONAL
+
+// Q: What is Combine?
+// A: Combine is Apple's framework for processing values over time. It provides a declarative Swift API for handling asynchronous events. It's Apple's native implementation of Functional Reactive Programming (FRP).
+
+// Q: What are the three main components of Combine?
+// A:
+// 1.  **Publisher:** Emits a sequence of values over time. A publisher can emit zero or more values, and can terminate with either a successful completion or an error.
+// 2.  **Operator:** A method on a publisher that transforms, filters, or combines values from an upstream publisher and returns a new, downstream publisher. Operators are chained together to form a pipeline.
+// 3.  **Subscriber:** Receives values from a publisher. It acts on the received input and completion events.
+
+// Q: What is the difference between a PassthroughSubject and a CurrentValueSubject?
+// A:
+// -   **PassthroughSubject:** A "stateless" subject. It broadcasts values to all current subscribers but doesn't have an initial value or hold onto the last emitted value. New subscribers will only receive values sent *after* they have subscribed.
+// -   **CurrentValueSubject:** A "stateful" subject. It is initialized with a value and always stores the most recent value. When a new subscriber connects, it immediately receives the current value.
+
+// Q: What does the `@Published` property wrapper do?
+// A: `@Published` is a property wrapper that turns any property into a publisher. Whenever the property's value changes, it automatically publishes the new value. It's a convenient way to expose a publisher from a property, commonly used in SwiftUI `ObservableObject`s to trigger view updates. Under the hood, it creates a `Published<Value>.Publisher`.
+
+// Q: What is `AnyCancellable` and why is it important for memory management?
+// A: `AnyCancellable` is a type-erased class that manages the lifecycle of a subscription. When you subscribe to a publisher (e.g., using `.sink` or `.assign`), it returns a cancellable object. You *must* store this object. If the `AnyCancellable` is deallocated, the subscription is automatically cancelled and torn down. This prevents memory leaks by ensuring the subscription doesn't live forever. Typically, you store them in a `Set<AnyCancellable>`.
+
+// MARK: - INTERMEDIATE
+
+// Q: Explain the publisher lifecycle.
+// A:
+// 1.  **Subscription:** A subscriber attaches to a publisher.
+// 2.  **Request:** The subscriber requests a number of values from the publisher (this is part of the backpressure mechanism).
+// 3.  **Value Emission:** The publisher sends zero or more values to the subscriber.
+// 4.  **Completion:** The publisher sends a single completion event. This can be either `.finished` (a normal termination) or `.failure(Error)` (an abnormal termination). Once a completion event is sent, the stream is closed and no more values will be emitted.
+
+// Q: What is backpressure and how does Combine handle it?
+// A: Backpressure is a mechanism that allows a subscriber to control the rate at which it receives values from a publisher. This prevents a fast publisher from overwhelming a slow subscriber. Combine handles this through the `Subscribers.Demand` enum. When a subscriber first connects, it can specify an initial demand (e.g., `.max(10)` or `.unlimited`). The publisher will only send up to that many values. The subscriber can then adjust its demand as it processes values.
+
+// Q: What is the difference between `map` and `flatMap`?
+// A:
+// -   **`map`:** Transforms each value from an upstream publisher into a new value of a potentially different type. It's a 1-to-1 transformation (e.g., `Int` -> `String`).
+// -   **`flatMap`:** Transforms each value from an upstream publisher into a *new publisher*. It then "flattens" the emissions from all these inner publishers into a single stream of values. It's essential for chaining asynchronous operations, like making a network request for each value received from a previous publisher.
+
+// Q: When would you use `debounce` vs. `throttle`?
+// A:
+// -   **`debounce`:** Use when you only care about the final value after a series of rapid events has stopped. The classic example is a search bar: you wait for the user to stop typing for a moment before firing a network request.
+// -   **`throttle`:** Use when you want to limit the rate of events being processed. For example, if a user is rapidly tapping a button or scrolling, you might throttle the events to ensure you only process one event every second, either the first one or the latest one in that interval.
+
+// Q: What is the difference between `.sink` and `.assign`?
+// A: Both are subscribers, but they have different purposes.
+// -   **`.sink`:** A generic subscriber that takes closures as parameters. You provide a closure for receiving values (`receiveValue`) and an optional closure for handling completion (`receiveCompletion`). It's highly flexible.
+// -   **`.assign(to:on:)`:** A specialized subscriber that binds the output of a publisher directly to a property on an object using a KeyPath. It's less flexible but more concise for directly updating properties. It requires the publisher's `Failure` type to be `Never`.
+
+// MARK: - ADVANCED
+
+// Q: What is a `Scheduler` in Combine? Explain the difference between `receive(on:)` and `subscribe(on:)`.
+// A: A `Scheduler` defines an execution context where work can be performed, essentially abstracting away concepts like threads and dispatch queues.
+// -   **`receive(on:)`:** This operator changes the execution context for all *downstream* operators. It affects where the subscriber receives values. The most common use case is `receive(on: DispatchQueue.main)` to ensure that UI updates happen on the main thread.
+// -   **`subscribe(on:)`:** This operator changes the execution context for the *upstream* work, including the subscription itself and any work the publisher does to produce values. For example, you would use `subscribe(on: DispatchQueue.global())` to make a network request on a background thread. The position of these operators in the chain is critical.
+
+// Q: What is the purpose of `eraseToAnyPublisher()`?
+// A: `eraseToAnyPublisher()` is a form of type erasure. It hides the complex, specific type of a publisher chain and wraps it in a simple `AnyPublisher<Output, Failure>` type. This is useful for:
+// 1.  **API Design:** When returning a publisher from a function, you can hide the implementation details of your operator chain. This makes your API cleaner and allows you to change the internal implementation without breaking the public contract.
+// 2.  **Simplifying Types:** Storing publishers with long, complex types (e.g., `Publishers.Map<Publishers.Filter<...>>`) can be cumbersome. Erasing the type makes it much easier to manage.
+
+// Q: Explain the difference between `combineLatest`, `merge`, and `zip`.
+// A:
+// -   **`combineLatest`:** Takes two or more publishers. It waits for all publishers to emit at least one value. After that, it emits a new tuple of the latest values whenever *any* of the input publishers emits a new value. It's great for combining multiple states that contribute to a single view (e.g., form validation).
+// -   **`merge`:** Takes two or more publishers of the *same type*. It interleaves the values from all publishers into a single stream as they are emitted. The order depends on the timing of the emissions.
+// -   **`zip`:** Takes two or more publishers. It waits for each publisher to emit a value at a corresponding "index" and then emits a tuple of those values. It pairs the 1st value from each, then the 2nd from each, and so on. It will only emit as many tuples as the publisher with the fewest emissions.
+
+// MARK: - EXPERT / VERY ADVANCED
+
+// Q: How would you create a custom Publisher?
+// A: To create a custom publisher, you must conform to the `Publisher` protocol. This involves:
+// 1.  Defining the associated types `Output` and `Failure`.
+// 2.  Implementing the `receive<S: Subscriber>(subscriber: S)` method.
+// 3.  Inside `receive(subscriber:)`, you typically create a custom `Subscription` object. This subscription object is responsible for handling the subscriber's demand and sending values.
+// 4.  You pass this custom subscription to the subscriber's `receive(subscription:)` method. The subscription object is the link that manages the flow of data according to the subscriber's requests (backpressure).
+
+// Q: What are `ConnectablePublisher`s and when are they useful?
+// A: A `ConnectablePublisher` is a special type of publisher that does not start emitting values as soon as a subscriber attaches. Instead, it waits until its `connect()` method is called. This is known as "cold" behavior until connected.
+// It is useful for **multicasting**, where you want multiple subscribers to receive the exact same sequence of values from a single subscription. You can attach all your subscribers first, and then call `connect()` once to start the underlying work (e.g., a single network request). Operators like `share()` and `multicast()` create `ConnectablePublisher`s.
+
+// Q: How do you manage memory and avoid retain cycles in Combine, especially with `.sink`?
+// A: The most common retain cycle occurs when an object (e.g., a ViewModel) stores a cancellable for a subscription, and the subscription's closure (e.g., in `.sink`) captures a strong reference back to the object.
+// `self` -> `cancellables` (property) -> `subscription` -> `sink closure` -> `self`
+// The solution is to use a weak capture list in the closure:
+// ```swift
+// .sink { [weak self] value in
+//     guard let self = self else { return }
+//     self.myProperty = value
+// }
+// .store(in: &cancellables)
+// ```
+// By capturing `[weak self]`, the closure holds a weak reference to the object, breaking the strong reference cycle.
+
+// Q: How does Combine integrate with Swift's modern concurrency (`async/await`)?
+// A: Combine and `async/await` are highly interoperable.
+// 1.  **Consuming a Publisher with `async/await`:** Any `Publisher` has a `.values` property, which is an `AsyncSequence`. You can iterate over it using a `for await...in` loop. This provides a natural, imperative way to handle a stream of values.
+// 2.  **Getting a single value:** You can `await` the `publisher.firstValue` property to suspend execution until the publisher emits its first value or finishes.
+// 3.  **Creating a Publisher from an `async` operation:** You can use a `Future` publisher or create a custom publisher to wrap an `async` function call, bridging the `async/await` world back into a declarative Combine pipeline.
+
 class AdvancedCombineBootcampViewModel: ObservableObject {
     @Published var dataFromPublished: [String] = []
     @Published var dataFromCurrentValue: [String] = []
